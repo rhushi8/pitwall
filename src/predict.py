@@ -65,7 +65,7 @@ DEFAULT_CIRCUIT_PROFILES: dict[str, CircuitProfile] = {
 
 
 def load_circuit_profiles(config_path: Path | None = None) -> dict[str, CircuitProfile]:
-    config_path = config_path or Path(__file__).parent.parent.parent / "config" / "circuits.json"
+    config_path = config_path or Path(__file__).parent.parent / "config" / "circuits.json"
     if not config_path.exists():
         return DEFAULT_CIRCUIT_PROFILES
 
