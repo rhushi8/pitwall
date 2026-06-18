@@ -66,7 +66,9 @@ class PositionXGB:
         self.model  = xgb.XGBRegressor(**self.params)
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> "PositionXGB":
-        self.model.fit(X, y, eval_set=[(X, y)], verbose=False)
+        # No eval_set: early stopping isn't configured, so passing the training
+        # set as eval data only produced misleading "validation" logging.
+        self.model.fit(X, y, verbose=False)
         return self
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
@@ -88,12 +90,9 @@ class PaceLGBM:
         self.model  = lgb.LGBMRegressor(**self.params)
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> "PaceLGBM":
-        self.model.fit(
-            X, y,
-            eval_set=[(X, y)],
-            callbacks=[lgb.early_stopping(20, verbose=False),
-                       lgb.log_evaluation(-1)],
-        )
+        # Early stopping needs a real validation set; with only the training set
+        # LightGBM disables it and warns. Fit plainly instead.
+        self.model.fit(X, y, callbacks=[lgb.log_evaluation(-1)])
         return self
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
