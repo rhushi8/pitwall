@@ -22,13 +22,12 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import mean_absolute_error
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config.settings import MODEL_DIR, ALL_FEATURES
+from config.settings import MODEL_DIR
 from src.features.engineer import build_feature_matrix
 from src.logging_config import setup_logging
 from src.models.ensemble import F1StackingEnsemble

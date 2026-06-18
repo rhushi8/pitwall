@@ -47,7 +47,6 @@ log = logging.getLogger(__name__)
 # Setup FastF1 cache (must happen before any fastf1 import that triggers network)
 # ─────────────────────────────────────────────────────────────────────────────
 import fastf1
-from fastf1.ergast import Ergast
 
 Path(FASTF1_CACHE).mkdir(parents=True, exist_ok=True)
 fastf1.Cache.enable_cache(FASTF1_CACHE)
@@ -646,7 +645,7 @@ def run_scraper(
 
     # ── Final summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)
-    print(f"  Scrape complete")
+    print("  Scrape complete")
     print(f"  Races saved:  {total_races}")
     print(f"  Driver rows:  {total_rows}")
     print(f"  Failed races: {len(failed)}")

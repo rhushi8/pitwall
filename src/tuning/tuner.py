@@ -23,7 +23,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import pickle
 import sys
 import time
 from pathlib import Path
@@ -34,7 +33,7 @@ import pandas as pd
 import optuna
 from optuna.samplers import TPESampler
 from optuna.pruners import MedianPruner
-from sklearn.linear_model import Ridge, LogisticRegression
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import KFold, GroupShuffleSplit
 from sklearn.metrics import mean_absolute_error
 import xgboost as xgb
@@ -42,7 +41,7 @@ import lightgbm as lgb
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from config.settings import MODEL_DIR, PROC_DIR, ALL_FEATURES
+from config.settings import MODEL_DIR, ALL_FEATURES
 from src.features.engineer import build_feature_matrix
 from src.models.ensemble import F1StackingEnsemble, PositionXGB, PaceLGBM
 
@@ -446,7 +445,6 @@ def build_tuned_ensemble(
     best_params: dict,
 ) -> F1StackingEnsemble:
     """Instantiate and train the ensemble with tuned hyperparameters."""
-    from src.models.ensemble import PositionXGB, PaceLGBM, TireDegNN, IncidentLogit
 
     log.info("Building final tuned ensemble …")
 

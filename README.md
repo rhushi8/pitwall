@@ -44,6 +44,13 @@ python src/tuning/walk_forward_backtest.py --year 2024 --optimize-calibration --
 python src/tuning/run_full_evaluation.py --years 2020 2021 2022 2023 2024
 ```
 
+## Tests
+```bash
+pip install -r requirements-dev.txt
+pytest                # unit tests: Monte Carlo, ensemble save/load, prediction helpers
+```
+Tests are offline (no FastF1/network) and use small synthetic data.
+
 ## Project structure
 - `src/ingestion/` — FastF1 & OpenF1 data loaders
 - `src/features/` — feature engineering (ELO, circuit affinity, tire degradation, pace)

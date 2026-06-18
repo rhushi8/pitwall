@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import pickle
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -119,7 +119,6 @@ class TireDegNN:
         self._fallback_model = lgb.LGBMRegressor(**LGBM_PARAMS)
 
     def _build_torch_model(self, input_dim: int):
-        import torch
         import torch.nn as nn
         from config.settings import NN_PARAMS
 
@@ -386,7 +385,7 @@ class F1StackingEnsemble:
         self._ensure_portable_tire_model()
         payload = {
             "version": "2.0",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "feature_cols": self.feature_cols,
             "model": self,
             "artifacts": getattr(self, "_artifacts", {}),
@@ -398,7 +397,7 @@ class F1StackingEnsemble:
 
     def save_versioned(self, base_path: Optional[Path] = None) -> Path:
         base_path = base_path or MODEL_DIR
-        stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         version_path = base_path / f"ensemble_{stamp}.pkl"
         self.save(version_path)
         latest = base_path / "ensemble_latest.pkl"

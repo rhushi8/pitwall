@@ -54,7 +54,6 @@ def generate_report(years: list[int]) -> None:
             merged = merged.merge(df_copy, on="weight")
 
     # Compute weighted aggregate MAE
-    mae_cols = [c for c in merged.columns if c.startswith("mae_")]
     round_cols = [c for c in merged.columns if c.startswith("rounds_")]
 
     merged["total_rounds"] = merged[round_cols].sum(axis=1)
@@ -98,7 +97,7 @@ def generate_report(years: list[int]) -> None:
         print(f"  Improvement:        {improvement_pct:>6.1f}%")
 
     # Top 5 weights
-    print(f"\n  Top 5 weights by aggregate MAE:")
+    print("\n  Top 5 weights by aggregate MAE:")
     top5 = merged[["weight", "weighted_mae"]].head(5)
     for i, (_, row) in enumerate(top5.iterrows(), 1):
         print(f"    {i}. weight={row['weight']:>4.2f}  MAE={row['weighted_mae']:>6.3f}")

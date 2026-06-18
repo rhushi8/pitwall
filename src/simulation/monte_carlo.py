@@ -32,8 +32,7 @@ from tqdm import tqdm
 
 from config.settings import (
     MC_SIMULATIONS, MC_RANDOM_SEED,
-    SAFETY_CAR_PROB_PER_LAP, DNF_BASE_PROB_PER_RACE,
-    PIT_TIME_MEAN, PIT_TIME_STD, SIMULATION_PARAMS,
+    SAFETY_CAR_PROB_PER_LAP, SIMULATION_PARAMS,
 )
 
 log = logging.getLogger(__name__)
