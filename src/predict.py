@@ -1,18 +1,11 @@
-"""
-src/predict.py
-──────────────
-End-to-end prediction pipeline.
+"""End-to-end prediction pipeline.
 
 Usage:
     python src/predict.py --year 2024 --gp Bahrain --sims 10000
 
-Steps:
-  1. Load race weekend data (FastF1 + OpenF1)
-  2. Engineer features
-  3. Load or train ensemble model
-  4. Build DriverProfile objects from model predictions
-  5. Run Monte Carlo simulation
-  6. Print and save results
+Loads the race weekend from FastF1 and OpenF1, engineers the features, loads
+or trains the ensemble, builds DriverProfile objects from its predictions,
+runs the Monte Carlo simulation, then prints and saves the results.
 """
 from __future__ import annotations
 
@@ -25,7 +18,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-# ── Path setup ─────────────────────────────────────────────────────────────────
+# Path setup
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config.settings import (
@@ -48,9 +41,7 @@ from src.simulation.monte_carlo import (
 log = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Default circuit profiles (add more as needed)
-# ─────────────────────────────────────────────────────────────────────────────
 
 DEFAULT_CIRCUIT_PROFILES: dict[str, CircuitProfile] = {
     "bahrain": CircuitProfile("Bahrain International Circuit", 57, safety_car_rate=0.05, overtaking_factor=1.2),
@@ -95,7 +86,7 @@ def get_circuit_profile(gp_name: str) -> CircuitProfile:
     for k, v in CIRCUIT_PROFILES.items():
         if k in key or key in k:
             return v
-    log.warning("No circuit profile for '%s' — using generic defaults", gp_name)
+    log.warning("No circuit profile for '%s', using generic defaults", gp_name)
     return CircuitProfile(gp_name, total_laps=55, safety_car_rate=0.06)
 
 
@@ -193,9 +184,7 @@ def calibrate_position_predictions(
     return out
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Build DriverProfile list from model predictions
-# ─────────────────────────────────────────────────────────────────────────────
 
 def build_driver_profiles(
     feature_df: pd.DataFrame,
@@ -269,9 +258,7 @@ def build_driver_profiles(
     return profiles
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Main pipeline
-# ─────────────────────────────────────────────────────────────────────────────
 
 def predict_race(
     year: int,
@@ -325,7 +312,7 @@ def predict_race(
         preds = ensemble.predict(feature_matrix)
         preds = calibrate_position_predictions(feature_df, preds)
     else:
-        log.warning("No trained model found at %s — using heuristic preds", model_path)
+        log.warning("No trained model found at %s, using heuristic preds", model_path)
         feature_result = build_feature_matrix(
             feature_df,
             historical_results=historical,
@@ -391,9 +378,7 @@ def predict_race(
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # CLI
-# ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     setup_logging(log_file=PROC_DIR / "f1_predictor.log")

@@ -1,14 +1,8 @@
-"""
-src/features/engineer.py
-────────────────────────
-Transforms raw ingestion DataFrames into model-ready features.
+"""Turn raw ingestion frames into model-ready features.
 
-Key responsibilities:
-  1. Compute ELO ratings for drivers and teams
-  2. Add circuit-level historical statistics
-  3. Normalise and encode categorical variables
-  4. Generate interaction features (e.g. pace × tire-deg)
-  5. Impute missing values with sensible defaults
+Computes driver and team ELO, adds circuit-level history, normalises and
+encodes the categoricals, builds interaction terms like pace x tire-deg, and
+fills missing values with sensible defaults.
 """
 from __future__ import annotations
 
@@ -22,9 +16,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 log = logging.getLogger(__name__)
 _ELO_CACHE: dict[tuple[int, int, Optional[tuple[int, str]]], tuple[EloRating, EloRating]] = {}
 
-# ─────────────────────────────────────────────────────────────────────────────
 # ELO rating system
-# ─────────────────────────────────────────────────────────────────────────────
 
 class EloRating:
     """
@@ -33,7 +25,7 @@ class EloRating:
     """
 
     DEFAULT_ELO = 1500.0
-    K           = 32          # update speed — tune per season
+    K           = 32          # update speed, tune per season
     D           = 400.0       # logistic scale
 
     def __init__(self, initial_ratings: Optional[dict[str, float]] = None):
@@ -233,9 +225,7 @@ def _add_pre_race_form_features(df: pd.DataFrame, historical_results: pd.DataFra
     return out
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Circuit affinity
-# ─────────────────────────────────────────────────────────────────────────────
 
 def compute_circuit_affinity(
     historical_results: pd.DataFrame,
@@ -255,9 +245,7 @@ def compute_circuit_affinity(
     return aff
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Track evolution coefficient
-# ─────────────────────────────────────────────────────────────────────────────
 
 def compute_track_evolution(
     practice_laps_df: pd.DataFrame,
@@ -279,9 +267,7 @@ def compute_track_evolution(
     return 0.0
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Interaction features
-# ─────────────────────────────────────────────────────────────────────────────
 
 def add_interaction_features(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -303,14 +289,12 @@ def add_interaction_features(df: pd.DataFrame) -> pd.DataFrame:
         df["qual_practice_delta"] = df["q3_time_s"] - df["fp2_best_lap_s"]
 
     # Rolling average of last 3 races (requires historical context)
-    # — added during dataset construction, not here
+    # added during dataset construction, not here
 
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Imputation
-# ─────────────────────────────────────────────────────────────────────────────
 
 IMPUTATION_DEFAULTS = {
     # If driver didn't make Q2/Q3, impute with field median + penalty
@@ -378,9 +362,7 @@ def impute_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Encoding
-# ─────────────────────────────────────────────────────────────────────────────
 
 def encode_categoricals(
     df: pd.DataFrame,
@@ -419,9 +401,7 @@ def encode_categoricals(
     return df, encoders
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Scaling
-# ─────────────────────────────────────────────────────────────────────────────
 
 def scale_features(
     df: pd.DataFrame,
@@ -467,9 +447,7 @@ def _validate_dataframe(df: pd.DataFrame, required: list[str], name: str) -> Non
         raise ValueError(f"{name} missing required columns: {missing}")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Full pipeline
-# ─────────────────────────────────────────────────────────────────────────────
 
 def build_feature_matrix(
     raw_df: pd.DataFrame,

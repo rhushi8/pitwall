@@ -1,9 +1,6 @@
-"""
-src/ingestion/openf1_client.py
-──────────────────────────────
-Thin async client for the OpenF1 REST API.
-Used for live race-day data: stints, pit stops, positions, car data.
-Docs: https://openf1.org
+"""Thin async client for the OpenF1 REST API, documented at https://openf1.org
+
+Used for race-day data: stints, pit stops, positions and car data.
 """
 from __future__ import annotations
 
@@ -19,9 +16,7 @@ from config.settings import OPENF1_BASE_URL
 
 log = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Core client
-# ─────────────────────────────────────────────────────────────────────────────
 
 class OpenF1Client:
     """Async HTTP client wrapping the OpenF1 API."""
@@ -68,7 +63,7 @@ class OpenF1Client:
             log.exception("Unexpected OpenF1 error on endpoint '%s': %s", endpoint, exc)
             return []
 
-    # ── Synchronous convenience wrapper ───────────────────────────────────────
+    # Synchronous convenience wrapper
     def get_sync(self, endpoint: str, **params: Any) -> list[dict]:
         try:
             return asyncio.run(self.get(endpoint, **params))
@@ -82,9 +77,7 @@ class OpenF1Client:
                 loop.close()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Domain helpers (each returns a cleaned DataFrame)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class F1DataFetcher:
     """High-level fetcher for OpenF1 race-weekend data."""
@@ -92,7 +85,7 @@ class F1DataFetcher:
     def __init__(self, client: Optional[OpenF1Client] = None):
         self.client = client or OpenF1Client()
 
-    # ── Sessions ──────────────────────────────────────────────────────────────
+    # Sessions
 
     def get_sessions(self, year: int, gp_name: Optional[str] = None) -> pd.DataFrame:
         """List all sessions in a season (or filter by GP name)."""
@@ -112,7 +105,7 @@ class F1DataFetcher:
             return None
         return int(match.iloc[0]["session_key"])
 
-    # ── Stints ────────────────────────────────────────────────────────────────
+    # Stints
 
     def get_stints(self, session_key: int) -> pd.DataFrame:
         """
@@ -128,7 +121,7 @@ class F1DataFetcher:
         df["lap_count"] = df["lap_end"] - df["lap_start"] + 1
         return df
 
-    # ── Pit stops ─────────────────────────────────────────────────────────────
+    # Pit stops
 
     def get_pit_stops(self, session_key: int) -> pd.DataFrame:
         """
@@ -152,7 +145,7 @@ class F1DataFetcher:
             .rename(columns={"mean": "pit_time_mean_s", "std": "pit_time_std_s"})
         )
 
-    # ── Lap times ─────────────────────────────────────────────────────────────
+    # Lap times
 
     def get_laps(self, session_key: int,
                  driver_number: Optional[int] = None) -> pd.DataFrame:
@@ -167,7 +160,7 @@ class F1DataFetcher:
         data = self.client.get_sync("laps", **params)
         return pd.DataFrame(data)
 
-    # ── Car data (position stream) ────────────────────────────────────────────
+    # Car data (position stream)
 
     def get_positions(self, session_key: int) -> pd.DataFrame:
         """
@@ -177,7 +170,7 @@ class F1DataFetcher:
         data = self.client.get_sync("position", session_key=session_key)
         return pd.DataFrame(data)
 
-    # ── Weather ───────────────────────────────────────────────────────────────
+    # Weather
 
     def get_weather(self, session_key: int) -> pd.DataFrame:
         """Returns time-series weather data for a session."""
@@ -196,14 +189,14 @@ class F1DataFetcher:
             "race_rainfall":        bool(df["rainfall"].any()) if "rainfall" in df else False,
         }
 
-    # ── Drivers ───────────────────────────────────────────────────────────────
+    # Drivers
 
     def get_drivers(self, session_key: int) -> pd.DataFrame:
         """Returns driver metadata (number, code, team) for a session."""
         data = self.client.get_sync("drivers", session_key=session_key)
         return pd.DataFrame(data)
 
-    # ── Compound usage summary ────────────────────────────────────────────────
+    # Compound usage summary
 
     def get_compound_strategy_summary(self, session_key: int) -> pd.DataFrame:
         """
@@ -234,9 +227,7 @@ class F1DataFetcher:
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Utility: merge OpenF1 live data with a FastF1 feature DataFrame
-# ─────────────────────────────────────────────────────────────────────────────
 
 def enrich_with_openf1(
     feature_df: pd.DataFrame,
@@ -253,7 +244,7 @@ def enrich_with_openf1(
     fetcher = fetcher or F1DataFetcher()
     session_key = fetcher.get_session_key(year, gp_name, "R")
     if session_key is None:
-        log.warning("No race session_key found for %s %s — skipping enrichment", year, gp_name)
+        log.warning("No race session_key found for %s %s, skipping enrichment", year, gp_name)
         return feature_df
 
     drivers = fetcher.get_drivers(session_key)

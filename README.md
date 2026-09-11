@@ -1,81 +1,134 @@
 # F1 Race Predictor
 
-Forecast a Formula 1 race **before it happens** — not as a single predicted finishing order, but as win / podium / points **probabilities** with confidence intervals, produced by a **10,000-run Monte Carlo simulation** whose inputs combine a machine-learning ensemble with a calibrated qualifying-position prior.
+Forecast a Formula 1 race before it happens, as win, podium and points
+probabilities with confidence intervals, from a 10,000-run Monte Carlo
+simulation whose inputs combine a machine-learning ensemble with a calibrated
+qualifying-position prior.
 
-> **Honest framing:** the engineering strength here is the **methodology** — strict walk-forward validation and Monte Carlo uncertainty quantification — not raw predictive accuracy. The backtest shows that qualifying order is a very strong baseline that the ML ensemble does not beat on its own, so the final prediction blends the two at a weight the backtest itself selects. See [Model performance](#model-performance-measured-not-claimed).
+The honest framing, up front: the strength here is the methodology, walk-forward
+validation and Monte Carlo uncertainty, and not raw predictive accuracy. The
+backtest says qualifying order is a very strong baseline that the ensemble does
+not beat on its own, so the shipped prediction blends the two at a weight the
+backtest picked. The numbers are in [Model performance](#model-performance).
 
-## Problem Statement
-A Formula 1 race outcome is inherently stochastic — pace, tire degradation, pit-stop timing, safety cars, and DNFs all introduce randomness — so a single predicted finishing order misrepresents the result by hiding that uncertainty. Models that look accurate in-sample also tend to fail on unseen races. The problem this project addresses: forecast race outcomes as calibrated probabilities with explicit uncertainty, validated strictly on races outside the training window.
+## Why probabilities and not a finishing order
 
-## Key features
-- **Multi-source data** — qualifying, practice telemetry, tire data, and weather from **FastF1**; stints, pit stops, and live timing from **OpenF1**.
-- **Engineered features** — driver & team **ELO ratings**, circuit affinity, tire-degradation slope, fuel-corrected pace, and interaction terms.
-- **Stacking ensemble** — three diverse base learners (XGBoost, LightGBM, a small PyTorch MLP) regress finish position over the engineered feature set, plus logistic regression for DNF / safety-car, combined by a **Ridge meta-learner on out-of-fold predictions**. (Pace and tire-degradation enter as engineered *features*, not separate model targets.)
-- **Calibrated blend** — the ensemble's position estimate is blended with a qualifying-position prior at a weight chosen by the walk-forward backtest (default 0.10), because grid order is a strong baseline.
-- **Monte Carlo simulation** — 10,000 race runs sampling lap-time noise, tire degradation, pit-stop variance, safety cars, DNFs, and weather.
-- **Probabilistic output** — win / podium / points probabilities, expected finish + 90% confidence interval, DNF probability, and a strategy recommendation.
-- **Honest validation** — strict **walk-forward backtesting** and calibration across 2020–2024, with no future-data leakage.
-- **Interactive dashboard** built with Dash.
+A race outcome is stochastic. Pace, tire degradation, pit timing, safety cars
+and DNFs all inject randomness, so a single predicted finishing order hides the
+very thing you wanted to know. Models that look sharp in-sample also tend to
+fall over on races they have never seen. This one forecasts calibrated
+probabilities instead, validated strictly outside the training window.
+
+## What it does
+
+Data comes from two sources: qualifying, practice telemetry, tire data and
+weather from FastF1, and stints, pit stops and live timing from OpenF1.
+
+Features are engineered from that: driver and team ELO ratings, circuit
+affinity, tire-degradation slope, fuel-corrected pace, and interaction terms.
+
+Three base learners regress finish position over those features, XGBoost,
+LightGBM and a small PyTorch MLP, plus logistic regression for DNF and safety
+car, combined by a Ridge meta-learner on out-of-fold predictions. Pace and tire
+degradation are features here, not separate model targets.
+
+The ensemble's position estimate is then blended with a qualifying-position
+prior at a weight the walk-forward backtest chooses, defaulting to 0.10,
+because grid order is a strong baseline and pretending otherwise would be
+dishonest.
+
+The simulation runs 10,000 races, sampling lap-time noise, tire degradation,
+pit-stop variance, safety cars, DNFs and weather.
+
+Output is win, podium and points probabilities, an expected finish with a 90%
+confidence interval, a DNF probability and a strategy recommendation, rendered
+in a Dash dashboard.
+
+Validation is walk-forward across 2020 to 2024, with no future data leaking
+backwards.
 
 ## How it works
+
 ```
-FastF1 + OpenF1 ingestion → feature engineering → stacking ensemble → 10k Monte Carlo simulations → probabilities + strategy → Dash dashboard
+FastF1 + OpenF1 → feature engineering → stacking ensemble
+                → 10k Monte Carlo runs → probabilities and strategy → dashboard
 ```
 
-## Tech stack
-Python · FastF1 · OpenF1 · XGBoost · LightGBM · PyTorch · scikit-learn · Dash · Plotly
+## Stack
+
+Python, FastF1, OpenF1, XGBoost, LightGBM, PyTorch, scikit-learn, Dash, Plotly.
 
 ## Quickstart
+
 ```bash
 python -m venv venv
-venv\Scripts\activate               # Windows
+venv\Scripts\activate
 pip install -r requirements.txt
 
-# Predict a race (heuristic mode — no training required)
+# heuristic mode, no training needed
 python src/predict.py --year 2024 --gp Bahrain --sims 10000
 
-# Train on historical data, then predict with the trained model
+# train first, then predict with the trained model
 python src/train.py --csv data/processed/historical_results.csv
 python src/predict.py --year 2024 --gp Bahrain --sims 10000 --model models/ensemble.pkl
 ```
 
 ## Validation
+
 ```bash
-# Strict walk-forward backtest + calibration sweep
 python src/tuning/walk_forward_backtest.py --year 2024 --optimize-calibration --lock-best
-# One-command multi-year evaluation
 python src/tuning/run_full_evaluation.py --years 2020 2021 2022 2023 2024
 ```
 
-## Model performance (measured, not claimed)
-From the strict 2024 walk-forward calibration sweep (`data/processed/walk_forward_2024_calibration_sweep.csv`), mean absolute error of predicted vs actual finishing position by blend weight:
+## Model performance
+
+From the strict 2024 walk-forward calibration sweep
+(`data/processed/walk_forward_2024_calibration_sweep.csv`), mean absolute error
+of predicted against actual finishing position, by blend weight:
 
 | blend weight | what it means | MAE |
 |---|---|---|
-| 0.0 | qualifying order only (no model) | **2.75** |
-| 0.10 | **shipped default** | 2.77 |
+| 0.0 | qualifying order only, no model | **2.75** |
+| 0.10 | shipped default | 2.77 |
 | 1.0 | ML ensemble only | 4.70 |
 
-MAE rises monotonically as the model's weight increases — i.e. **the ensemble does not beat a pure qualifying-order baseline out-of-sample**, which is why the shipped blend leans ~90% on qualifying. This is a deliberately honest result: the value of the project is the validation discipline (no leakage, expanding-window backtest) and the probabilistic Monte Carlo layer, not a claim of state-of-the-art accuracy.
+MAE rises steadily as the model's weight goes up. The ensemble does not beat a
+pure qualifying-order baseline out of sample, which is why the shipped blend
+leans about 90% on qualifying.
+
+That is a real result and it is in the README on purpose. A model that loses to
+its own baseline is worth knowing about, and finding that out is what the
+walk-forward backtest is for. What the project actually demonstrates is the
+validation discipline and the probabilistic layer on top, not state-of-the-art
+accuracy.
 
 ## Tests
+
 ```bash
 pip install -r requirements-dev.txt
-pytest                # unit tests: Monte Carlo, ensemble save/load, prediction helpers
+pytest
 ```
-Tests are offline (no FastF1/network) and use small synthetic data.
 
-## Project structure
-- `src/ingestion/` — FastF1 & OpenF1 data loaders
-- `src/features/` — feature engineering (ELO, circuit affinity, tire degradation, pace)
-- `src/models/` — stacking ensemble
-- `src/simulation/` — Monte Carlo engine + strategy optimizer
-- `src/tuning/` — walk-forward backtesting & calibration
-- `src/dashboard/` — Dash app
-- `models/` — trained ensemble artifacts (`.pkl`)
-- `data/processed/` — sample predictions & strategy outputs
-- `scrape_and_build.py` — rebuilds the historical dataset
+Unit tests cover the Monte Carlo engine, ensemble save and load, and the
+prediction helpers. They run offline on small synthetic data, so no FastF1 and
+no network.
+
+## Layout
+
+```
+src/ingestion/    FastF1 and OpenF1 loaders
+src/features/     ELO, circuit affinity, tire degradation, pace
+src/models/       stacking ensemble
+src/simulation/   Monte Carlo engine and strategy optimizer
+src/tuning/       walk-forward backtesting and calibration
+src/dashboard/    Dash app
+models/           trained ensemble artifacts
+data/processed/   sample predictions and strategy outputs
+scrape_and_build.py   rebuilds the historical dataset
+```
 
 ## Notes
-- Raw FastF1 data isn't committed — regenerate it with `python scrape_and_build.py`. Processed sample outputs are included so results are visible without a full run.
-- Research / portfolio project.
+
+Raw FastF1 data isn't committed. Regenerate it with `python scrape_and_build.py`.
+Processed sample outputs are included so the results are visible without a full
+run.

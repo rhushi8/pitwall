@@ -1,22 +1,14 @@
-"""
-src/tuning/tuner.py
-────────────────────
-Optuna-powered hyperparameter search for all models in the ensemble.
+"""Optuna hyperparameter search for every model in the ensemble.
 
-Tunes independently:
-  • XGBoost  (finish-position regressor)
-  • LightGBM (pace regressor)
-  • Neural net hidden-layer / dropout / lr
-  • Ridge meta-learner alpha
-
-Then runs a joint stacking cross-validation with the best params found
-and saves the final tuned model.
+Tunes XGBoost, LightGBM, the neural net's hidden layers, dropout and learning
+rate, and the Ridge meta-learner's alpha, each on its own. Then runs a joint
+stacking cross-validation with the best parameters found and saves the tuned
+model.
 
 Usage:
     python src/tuning/tuner.py --csv data/processed/historical_results.csv
-    python src/tuning/tuner.py --csv data/processed/historical_results.csv \
-        --trials 150 --model xgb          # tune one model only
-    python src/tuning/tuner.py --load-study studies/xgb_study.pkl  # resume
+    python src/tuning/tuner.py --csv data/processed/historical_results.csv --trials 150 --model xgb
+    python src/tuning/tuner.py --load-study studies/xgb_study.pkl   # resume a study
 """
 from __future__ import annotations
 
@@ -55,9 +47,7 @@ N_CV_SPLITS = 5
 RANDOM_SEED = 42
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Data loading
-# ─────────────────────────────────────────────────────────────────────────────
 
 def load_data(csv_path: Path) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     df = pd.read_csv(csv_path)
@@ -83,9 +73,7 @@ def train_val_split(X, y, groups, test_size=0.15):
             groups[tr], groups[vl])
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # XGBoost objective
-# ─────────────────────────────────────────────────────────────────────────────
 
 def xgb_objective(trial: optuna.Trial, X_tr, y_tr, X_vl, y_vl, groups_tr):
     params = {
@@ -124,9 +112,7 @@ def xgb_objective(trial: optuna.Trial, X_tr, y_tr, X_vl, y_vl, groups_tr):
     return float(np.mean(maes))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # LightGBM objective
-# ─────────────────────────────────────────────────────────────────────────────
 
 def lgbm_objective(trial: optuna.Trial, X_tr, y_tr, X_vl, y_vl, groups_tr):
     params = {
@@ -167,9 +153,7 @@ def lgbm_objective(trial: optuna.Trial, X_tr, y_tr, X_vl, y_vl, groups_tr):
     return float(np.mean(maes))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Neural net objective (architecture + training hypers)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def nn_objective(trial: optuna.Trial, X_tr, y_tr, X_vl, y_vl, groups_tr):
     try:
@@ -177,7 +161,7 @@ def nn_objective(trial: optuna.Trial, X_tr, y_tr, X_vl, y_vl, groups_tr):
         import torch.nn as nn
         from torch.utils.data import DataLoader, TensorDataset
     except ImportError:
-        log.warning("PyTorch not installed — skipping NN tuning")
+        log.warning("PyTorch not installed, skipping NN tuning")
         raise optuna.TrialPruned()
 
     n_layers = trial.suggest_int("n_layers", 1, 4)
@@ -242,9 +226,7 @@ def nn_objective(trial: optuna.Trial, X_tr, y_tr, X_vl, y_vl, groups_tr):
     return float(np.mean(maes))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Meta-learner objective (Ridge alpha)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def meta_objective(trial: optuna.Trial, oof_preds: np.ndarray, y: pd.Series):
     alpha = trial.suggest_float("alpha", 1e-3, 100.0, log=True)
@@ -257,9 +239,7 @@ def meta_objective(trial: optuna.Trial, oof_preds: np.ndarray, y: pd.Series):
     return float(np.mean(maes))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Feature importance analysis with SHAP
-# ─────────────────────────────────────────────────────────────────────────────
 
 def run_shap_analysis(
     model: xgb.XGBRegressor,
@@ -270,7 +250,7 @@ def run_shap_analysis(
     try:
         import shap
     except ImportError:
-        log.warning("shap not installed — skipping SHAP analysis (pip install shap)")
+        log.warning("shap not installed, skipping SHAP analysis (pip install shap)")
         return pd.DataFrame()
 
     log.info("Running SHAP analysis …")
@@ -295,9 +275,7 @@ def run_shap_analysis(
     return importance
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Study runner
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TuningSession:
     """Orchestrates all Optuna studies and saves best params."""
@@ -432,9 +410,7 @@ class TuningSession:
         return path
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Build final tuned ensemble
-# ─────────────────────────────────────────────────────────────────────────────
 
 def build_tuned_ensemble(
     X_tr: pd.DataFrame,
@@ -471,9 +447,7 @@ def build_tuned_ensemble(
     return ensemble
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Benchmark: tuned vs default
-# ─────────────────────────────────────────────────────────────────────────────
 
 def benchmark(
     X_tr, y_tr, X_vl, y_vl, y_dnf_tr,
@@ -511,9 +485,7 @@ def benchmark(
     return df, tuned
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # CLI
-# ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     logging.basicConfig(

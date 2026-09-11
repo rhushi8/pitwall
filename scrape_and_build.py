@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
-"""
-scrape_and_build.py
-────────────────────
-One-shot convenience script: scrapes all historical data then assembles
-the training dataset.
+"""Scrape all historical data, then assemble the training dataset.
 
 Run from the project root:
     python scrape_and_build.py
 
-Options are passed through to the scraper; see --help for details.
+Options pass straight through to the scraper, so see --help for those.
 """
 import subprocess
 import sys
@@ -32,7 +28,7 @@ STEPS = [
 
 
 def main() -> None:
-    print("F1 Predictor — Data Pipeline")
+    print("F1 Predictor: data pipeline")
     print("=" * 50)
 
     for i, step in enumerate(STEPS, 1):

@@ -22,7 +22,7 @@ from config.settings import PROC_DIR, CALIBRATION_PARAMS
 def generate_report(years: list[int]) -> None:
     """Generate multi-season calibration analysis report."""
     print("\n" + "=" * 80)
-    print("F1 PREDICTOR — CALIBRATION ANALYSIS REPORT".center(80))
+    print("F1 PREDICTOR CALIBRATION ANALYSIS REPORT".center(80))
     print("=" * 80 + "\n")
 
     sweep_dfs: dict[int, pd.DataFrame] = {}

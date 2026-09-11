@@ -1,18 +1,12 @@
-"""
-src/scraper/historical_scraper.py
-──────────────────────────────────
-Bulk-downloads F1 race weekends from 2018 → present using FastF1.
+"""Bulk-download F1 race weekends from 2018 onwards using FastF1.
 
-Features:
-  - Resume support: skips already-scraped races (checks .parquet on disk)
-  - Rate limiting: respects FastF1 cache and adds polite delays
-  - Retry logic: exponential backoff on transient errors
-  - Validation: schema + sanity checks on every scraped row
-  - Progress tracking: rich progress table + persistent status log
-  - Incremental writes: saves each race immediately (no data loss on crash)
+Built to survive a long run. It skips races already sitting on disk so it can
+resume, adds polite delays on top of the FastF1 cache, backs off exponentially
+on transient errors, sanity-checks the schema of every scraped row, and writes
+each race out as it finishes so a crash costs nothing.
 
-Output: data/processed/historical_results.csv  (append-mode, deduped)
-        data/raw/{year}/{gp_slug}/              (per-race parquets)
+Output lands in data/processed/historical_results.csv, appended and deduped,
+with the per-race parquets under data/raw/{year}/{gp_slug}/.
 
 Usage:
     python src/scraper/historical_scraper.py
@@ -43,17 +37,13 @@ from config.settings import FASTF1_CACHE, RAW_DIR, PROC_DIR
 
 log = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Setup FastF1 cache (must happen before any fastf1 import that triggers network)
-# ─────────────────────────────────────────────────────────────────────────────
 import fastf1
 
 Path(FASTF1_CACHE).mkdir(parents=True, exist_ok=True)
 fastf1.Cache.enable_cache(FASTF1_CACHE)
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Constants
-# ─────────────────────────────────────────────────────────────────────────────
 
 SCRAPE_YEARS        = list(range(2018, 2025))   # inclusive
 STATUS_FILE         = PROC_DIR / "scrape_status.json"
@@ -68,9 +58,7 @@ INTER_SESSION_DELAY = 4.0    # pause between sessions within a race
 # Minimum valid rows per race (catches partial scrapes)
 MIN_DRIVERS_PER_RACE = 15
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Status tracking
-# ─────────────────────────────────────────────────────────────────────────────
 
 @dataclass
 class RaceStatus:
@@ -137,9 +125,7 @@ class ScrapeTracker:
         return counts
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Retry decorator
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _is_rate_limit(exc: Exception) -> bool:
     """Detect HTTP 429 / rate-limit errors from FastF1 / underlying requests."""
@@ -188,9 +174,7 @@ def with_retry(fn, *args, max_retries=RETRY_MAX, base_delay=RETRY_BASE_DELAY, **
                 time.sleep(delay)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Per-session extractors (same logic as fastf1_loader but standalone)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _safe_td_to_s(val) -> Optional[float]:
     """Convert timedelta / float / NaT to seconds, or None."""
@@ -350,9 +334,7 @@ def extract_weather_summary(session: fastf1.core.Session) -> dict:
     return out
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Build one race's feature row
-# ─────────────────────────────────────────────────────────────────────────────
 
 def scrape_race_weekend(year: int, gp: str | int, round_num: int) -> pd.DataFrame:
     """
@@ -372,7 +354,7 @@ def scrape_race_weekend(year: int, gp: str | int, round_num: int) -> pd.DataFram
             log.debug("    Session %s unavailable: %s", session_name, exc)
             return None
 
-    # ── Load sessions ──────────────────────────────────────────────────────
+    # Load sessions
     race_session = with_retry(load, "R")
     if race_session is None:
         raise ValueError(f"No race data for {year} {gp}")
@@ -382,7 +364,7 @@ def scrape_race_weekend(year: int, gp: str | int, round_num: int) -> pd.DataFram
     fp1_session   = with_retry(load, "FP1")
     fp3_session   = with_retry(load, "FP3")
 
-    # ── Extract per-driver data ────────────────────────────────────────────
+    # Extract per-driver data
     dfs = []
 
     # Race results (always required)
@@ -411,7 +393,7 @@ def scrape_race_weekend(year: int, gp: str | int, round_num: int) -> pd.DataFram
             except Exception as e:
                 log.debug("    Practice %s failed: %s", label, e)
 
-    # Tire degradation — prefer FP2
+    # Tire degradation, prefer FP2
     for sess in [fp2_session, fp3_session, fp1_session]:
         if sess is not None:
             time.sleep(INTER_SESSION_DELAY)
@@ -421,13 +403,13 @@ def scrape_race_weekend(year: int, gp: str | int, round_num: int) -> pd.DataFram
             except Exception as e:
                 log.debug("    Tire deg extraction failed: %s", e)
 
-    # ── Merge on driver_code ───────────────────────────────────────────────
+    # Merge on driver_code
     merged = dfs[0]
     for df in dfs[1:]:
         if df is not None and not df.empty and "driver_code" in df.columns:
             merged = merged.merge(df, on="driver_code", how="left")
 
-    # ── Add context columns ────────────────────────────────────────────────
+    # Add context columns
     merged["year"]      = year
     merged["round"]     = round_num
     merged["gp"]        = str(gp)
@@ -443,9 +425,7 @@ def _slugify(s: str) -> str:
     return s.lower().replace(" ", "_").replace("-", "_")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Season schedule fetcher
-# ─────────────────────────────────────────────────────────────────────────────
 
 def get_season_schedule(year: int) -> list[dict]:
     """
@@ -469,9 +449,7 @@ def get_season_schedule(year: int) -> list[dict]:
         return []
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Output helpers
-# ─────────────────────────────────────────────────────────────────────────────
 
 def save_race_parquet(df: pd.DataFrame, year: int, gp: str) -> Path:
     """Save per-race DataFrame to a parquet file under data/raw/."""
@@ -496,9 +474,7 @@ def append_to_master_csv(df: pd.DataFrame) -> None:
     combined.to_csv(OUTPUT_CSV, index=False)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Validation
-# ─────────────────────────────────────────────────────────────────────────────
 
 REQUIRED_COLS = [
     "driver_code", "team_name", "finish_position", "dnf",
@@ -558,9 +534,7 @@ def validate_race_df(df: pd.DataFrame, year: int, gp: str) -> list[str]:
     return warnings
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Main scraper
-# ─────────────────────────────────────────────────────────────────────────────
 
 def run_scraper(
     years: Optional[list[int]] = None,
@@ -643,7 +617,7 @@ def run_scraper(
             jitter = np.random.uniform(0, 5)
             time.sleep(inter_race_delay + jitter)
 
-    # ── Final summary ──────────────────────────────────────────────────────
+    # Final summary
     print("\n" + "=" * 60)
     print("  Scrape complete")
     print(f"  Races saved:  {total_races}")
@@ -690,9 +664,7 @@ def _run_validation_pass(tracker: ScrapeTracker) -> None:
         print(f"\nAll {len(parquet_paths)} files passed validation [OK]")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # CLI
-# ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     logging.basicConfig(

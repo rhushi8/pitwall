@@ -1,8 +1,4 @@
-"""
-src/scraper/scrape_dashboard.py
-────────────────────────────────
-Live terminal dashboard for monitoring the scraper's progress.
-Run in a second terminal while the scraper runs.
+"""Live terminal dashboard for the scraper. Run it in a second terminal.
 
 Usage:
     python src/scraper/scrape_dashboard.py
@@ -127,7 +123,7 @@ if __name__ == "__main__":
             while True:
                 print("\033[2J\033[H", end="")  # clear screen
                 render_dashboard()
-                print(f"\n  (refreshing every {args.interval}s — Ctrl+C to exit)")
+                print(f"\n  (refreshing every {args.interval}s, Ctrl+C to exit)")
                 time.sleep(args.interval)
         except KeyboardInterrupt:
             print("\nStopped.")

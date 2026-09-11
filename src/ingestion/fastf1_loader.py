@@ -1,8 +1,6 @@
-"""
-src/ingestion/fastf1_loader.py
-─────────────────────────────
-Loads qualifying, practice, and race data via the FastF1 library.
-Caches to disk so repeated calls are instant.
+"""Load qualifying, practice and race data through FastF1.
+
+Everything is cached to disk, so a repeated call is instant.
 """
 from __future__ import annotations
 
@@ -17,14 +15,12 @@ from config.settings import FASTF1_CACHE
 
 log = logging.getLogger(__name__)
 
-# ── Enable FastF1 cache ────────────────────────────────────────────────────────
+# Enable FastF1 cache
 Path(FASTF1_CACHE).mkdir(parents=True, exist_ok=True)
 fastf1.Cache.enable_cache(FASTF1_CACHE)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Session helpers
-# ─────────────────────────────────────────────────────────────────────────────
 
 def load_session(year: int, gp: str | int, session: str) -> fastf1.core.Session:
     """Load a FastF1 session with laps + telemetry + weather."""
@@ -55,9 +51,7 @@ def load_weekend(year: int, gp: str | int) -> dict[str, fastf1.core.Session]:
     return sessions
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Qualifying data
-# ─────────────────────────────────────────────────────────────────────────────
 
 def extract_qualifying_times(session: fastf1.core.Session) -> pd.DataFrame:
     """
@@ -129,9 +123,7 @@ def extract_qualifying_times(session: fastf1.core.Session) -> pd.DataFrame:
     return df.sort_values("grid_position").reset_index(drop=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Practice pace
-# ─────────────────────────────────────────────────────────────────────────────
 
 def extract_practice_pace(session: fastf1.core.Session, session_label: str) -> pd.DataFrame:
     """
@@ -181,9 +173,7 @@ def extract_practice_pace(session: fastf1.core.Session, session_label: str) -> p
     return pd.DataFrame(records)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Tire degradation
-# ─────────────────────────────────────────────────────────────────────────────
 
 def extract_tire_degradation(session: fastf1.core.Session) -> pd.DataFrame:
     """
@@ -234,9 +224,7 @@ def extract_tire_degradation(session: fastf1.core.Session) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Weather
-# ─────────────────────────────────────────────────────────────────────────────
 
 def extract_weather(session: fastf1.core.Session) -> dict:
     """Returns mean weather conditions from a session as a flat dict."""
@@ -252,9 +240,7 @@ def extract_weather(session: fastf1.core.Session) -> dict:
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Race results (for building training data)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def extract_race_results(session: fastf1.core.Session) -> pd.DataFrame:
     """
@@ -280,9 +266,7 @@ def extract_race_results(session: fastf1.core.Session) -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Convenience: build a full feature row for a single race weekend
-# ─────────────────────────────────────────────────────────────────────────────
 
 def build_weekend_features(year: int, gp: str | int) -> pd.DataFrame:
     """
@@ -301,7 +285,7 @@ def build_weekend_features(year: int, gp: str | int) -> pd.DataFrame:
         if label in sessions:
             dfs.append(extract_practice_pace(sessions[label], label))
 
-    # Tire degradation — prefer FP2 long-run data
+    # Tire degradation, prefer FP2 long-run data
     for label in ["FP2", "FP3", "S", "FP1"]:
         if label in sessions:
             deg_df = extract_tire_degradation(sessions[label])
@@ -363,7 +347,7 @@ def build_weekend_features(year: int, gp: str | int) -> pd.DataFrame:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(levelname)s %(name)s - %(message)s")
-    # Quick smoke test — 2024 Bahrain GP qualifying
+    # Quick smoke test: 2024 Bahrain GP qualifying
     df = build_weekend_features(2024, "Bahrain")
     print(df.head())
     print(df.columns.tolist())

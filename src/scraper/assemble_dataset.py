@@ -1,11 +1,8 @@
-"""
-src/scraper/assemble_dataset.py
-────────────────────────────────
-Reads all per-race parquet files, enriches them with cross-race features
-(ELO ratings, rolling averages, season context), and writes the final
-training CSV.
+"""Assemble the final training CSV from the per-race parquet files.
 
-Run AFTER historical_scraper.py has finished.
+Reads every per-race parquet, adds the cross-race features that need more than
+one race to compute (ELO, rolling averages, season context), and writes the
+training CSV. Run it after historical_scraper.py has finished.
 
 Usage:
     python src/scraper/assemble_dataset.py
@@ -31,9 +28,7 @@ log = logging.getLogger(__name__)
 OUTPUT_CSV = PROC_DIR / "historical_results.csv"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Load all parquets
-# ─────────────────────────────────────────────────────────────────────────────
 
 def load_all_parquets() -> pd.DataFrame:
     paths = sorted(RAW_DIR.rglob("*.parquet"))
@@ -58,9 +53,7 @@ def load_all_parquets() -> pd.DataFrame:
     return combined
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # ELO ratings (computed chronologically over the full dataset)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class EloSystem:
     DEFAULT = 1500.0
@@ -121,9 +114,7 @@ def add_elo_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Circuit affinity (rolling per driver × circuit)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def add_circuit_affinity(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -147,9 +138,7 @@ def add_circuit_affinity(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Rolling form (last N races)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def add_rolling_form(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     """
@@ -183,9 +172,7 @@ def add_rolling_form(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Season context
-# ─────────────────────────────────────────────────────────────────────────────
 
 def add_season_context(df: pd.DataFrame) -> pd.DataFrame:
     """Add championship standings context features."""
@@ -209,9 +196,7 @@ def add_season_context(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Safety car history per circuit
-# ─────────────────────────────────────────────────────────────────────────────
 
 def add_circuit_historical_rates(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -235,9 +220,7 @@ def add_circuit_historical_rates(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Column selection & final cleaning
-# ─────────────────────────────────────────────────────────────────────────────
 
 # Columns that MUST be present in the final CSV
 FINAL_COLUMNS = [
@@ -299,9 +282,7 @@ def select_and_clean(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Summary statistics
-# ─────────────────────────────────────────────────────────────────────────────
 
 def print_dataset_summary(df: pd.DataFrame) -> None:
     print("\n" + "=" * 60)
@@ -329,9 +310,7 @@ def print_dataset_summary(df: pd.DataFrame) -> None:
     print("=" * 60 + "\n")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Main
-# ─────────────────────────────────────────────────────────────────────────────
 
 def assemble(output_path: Path = OUTPUT_CSV) -> pd.DataFrame:
     log.info("Loading raw parquet files …")

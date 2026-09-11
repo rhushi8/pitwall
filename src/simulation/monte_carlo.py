@@ -1,22 +1,12 @@
-"""
-src/simulation/monte_carlo.py
-──────────────────────────────
-Monte Carlo race simulator.
+"""Monte Carlo race simulator.
 
-Each simulation run:
-  1. Samples lap-time noise for each driver based on predicted pace + std dev
-  2. Applies tire degradation model per stint
-  3. Samples pit-stop timing and execution errors
-  4. Samples safety-car deployments and their duration
-  5. Samples DNFs from per-driver mechanical failure probabilities
-  6. Rolls up to a final finishing order
+Each run samples lap-time noise per driver from predicted pace and its standard
+deviation, applies tire degradation per stint, samples pit timing and execution
+errors, samples safety cars and how long they last, samples DNFs from
+per-driver failure probabilities, and rolls all of that into a finishing order.
 
-Running 10,000 simulations produces probability distributions for:
-  - Win probability
-  - Podium (top-3) probability
-  - Points (top-10) probability
-  - Expected finish position ± CI
-  - Optimal race strategy (1-stop vs 2-stop)
+Ten thousand runs give win, podium and points probabilities, an expected finish
+with a confidence interval, and a one-stop against two-stop strategy call.
 """
 from __future__ import annotations
 
@@ -37,9 +27,7 @@ from config.settings import (
 
 log = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Data classes
-# ─────────────────────────────────────────────────────────────────────────────
 
 @dataclass
 class DriverProfile:
@@ -71,9 +59,7 @@ class CircuitProfile:
     weather_rain_prob:  float = 0.0   # probability of rain during race
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Strategy utilities
-# ─────────────────────────────────────────────────────────────────────────────
 
 COMPOUND_OFFSETS = {
     **SIMULATION_PARAMS["compound_pace_offsets"],
@@ -100,9 +86,7 @@ def effective_deg_slope(base_slope: float, compound: str) -> float:
     return base_slope * COMPOUND_DEG_MULTIPLIERS.get(compound, 1.0)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Single simulation run
-# ─────────────────────────────────────────────────────────────────────────────
 
 def simulate_race(
     drivers: list[DriverProfile],
@@ -136,7 +120,7 @@ def simulate_race(
             results.append(
                 {
                     "driver_code":    drv.code,
-                    "total_time_s":   1e9,   # large sentinel — sorts to back
+                    "total_time_s":   1e9,   # large sentinel, sorts to back
                     "dnf":            True,
                     "laps_completed": dnf_lap,
                     "pit_stops":      0,
@@ -226,9 +210,7 @@ def simulate_race(
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Full Monte Carlo runner
-# ─────────────────────────────────────────────────────────────────────────────
 
 def run_monte_carlo(
     drivers: list[DriverProfile],
@@ -307,9 +289,7 @@ def _run_batch(args: tuple[list[DriverProfile], CircuitProfile, int, int]) -> tu
     return positions, dnf_counts
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Results container
-# ─────────────────────────────────────────────────────────────────────────────
 
 class MonteCarloResults:
     """
@@ -329,7 +309,7 @@ class MonteCarloResults:
         self.n_simulations = n_simulations
         self._summary: Optional[pd.DataFrame] = None
 
-    # ── Probability helpers ───────────────────────────────────────────────────
+    # Probability helpers
 
     def win_prob(self, driver: str) -> float:
         return np.mean(np.array(self._positions[driver]) == 1)
@@ -351,7 +331,7 @@ class MonteCarloResults:
     def dnf_prob(self, driver: str) -> float:
         return self._dnf_counts[driver] / self.n_simulations
 
-    # ── Summary table ─────────────────────────────────────────────────────────
+    # Summary table
 
     def summary(self, sort_by: str = "win_prob") -> pd.DataFrame:
         if self._summary is not None and sort_by == "win_prob":
@@ -387,9 +367,7 @@ class MonteCarloResults:
         print("=" * 80 + "\n")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Strategy optimizer (brute-force over pit window options)
-# ─────────────────────────────────────────────────────────────────────────────
 
 STRATEGY_OPTIONS = {
     "1-stop: S→M":    [("SOFT", 20), ("MEDIUM", 36)],
@@ -452,9 +430,7 @@ def optimise_strategy(
     return pd.DataFrame(rows).sort_values("expected_position").reset_index(drop=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Quick smoke test
-# ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,

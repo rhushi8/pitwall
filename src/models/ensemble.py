@@ -1,14 +1,9 @@
-"""
-src/models/ensemble.py
-──────────────────────
-Stacking ensemble of:
-  1. XGBoost  — grid / finish position regression
-  2. LightGBM — stint pace regression
-  3. Neural net (PyTorch) — tire degradation regression
-  4. Logistic regression — safety car / DNF probability
+"""Stacking ensemble over four base models.
 
-A meta-learner (Ridge regression) combines base-model out-of-fold predictions
-into final race position estimates.
+XGBoost regresses grid and finish position, LightGBM regresses stint pace, a
+small PyTorch net regresses tire degradation, and logistic regression handles
+safety car and DNF probability. A Ridge meta-learner combines their
+out-of-fold predictions into the final position estimate.
 """
 from __future__ import annotations
 
@@ -53,9 +48,7 @@ class _TorchSafeUnpickler(pickle.Unpickler):
             return _TorchPlaceholder
         return super().find_class(module, name)
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Individual base models
-# ─────────────────────────────────────────────────────────────────────────────
 
 class PositionXGB:
     """XGBoost finish-position regressor."""
@@ -112,7 +105,7 @@ class TireDegNN:
             import torch  # noqa: F401
             self._use_torch = True
         except ImportError:
-            log.warning("PyTorch not installed — using LightGBM fallback for TireDegNN")
+            log.warning("PyTorch not installed, using LightGBM fallback for TireDegNN")
 
         self.model = None
         self._fallback_model = lgb.LGBMRegressor(**LGBM_PARAMS)
@@ -228,41 +221,29 @@ class IncidentLogit:
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Stacking ensemble
-# ─────────────────────────────────────────────────────────────────────────────
 
 class F1StackingEnsemble:
-    """
-        5-fold stacking ensemble for F1 finish-position prediction.
+    """5-fold stacking ensemble for finish-position prediction.
 
-        Architecture:
-            - Base models:
-                1) XGBoost for position signal
-                2) LightGBM for pace signal
-                3) TireDegNN (PyTorch with LightGBM fallback) for degradation signal
-            - Incident model:
-                Logistic regression for DNF and safety-car effects
-            - Meta learner:
-                Ridge regression trained on out-of-fold base predictions
+    Base models: XGBoost for the position signal, LightGBM for pace, and
+    TireDegNN (PyTorch, falling back to LightGBM) for degradation. A separate
+    logistic regression covers DNF and safety-car effects, and a Ridge
+    meta-learner sits on top of the out-of-fold base predictions.
 
-    Training:
-      - Each base model produces OOF predictions via cross-validation.
-      - The meta-learner (Ridge) is trained on the OOF predictions.
+    Training cross-validates each base model to get out-of-fold predictions,
+    then fits the Ridge on those. At inference every base model predicts on the
+    full test set and the Ridge combines them.
 
-    Inference:
-      - Each base model predicts on the full test set.
-      - The meta-learner combines them into final position estimates.
+    Example:
+        ensemble = F1StackingEnsemble(n_splits=5)
+        ensemble.fit(X_train, y_position, y_dnf=y_dnf)
+        ensemble._artifacts = artifacts
+        ensemble.save()
 
-        Example:
-                ensemble = F1StackingEnsemble(n_splits=5)
-                ensemble.fit(X_train, y_position, y_dnf=y_dnf)
-                ensemble._artifacts = artifacts
-                ensemble.save()
-
-                loaded = F1StackingEnsemble.load()
-                preds = loaded.predict(X_test)
-                fi = loaded.feature_importance()
+        loaded = F1StackingEnsemble.load()
+        preds = loaded.predict(X_test)
+        fi = loaded.feature_importance()
     """
 
     def __init__(self, n_splits: int = 5, feature_cols: Optional[list[str]] = None):
@@ -350,7 +331,7 @@ class F1StackingEnsemble:
           - 'safety_car_prob': probability of safety car affecting driver
         """
         if not self._fitted:
-            raise RuntimeError("Model not fitted — call .fit() first")
+            raise RuntimeError("Model not fitted, call .fit() first")
 
         X_feat     = self._get_features(X)
         base_preds = np.column_stack(
@@ -376,7 +357,7 @@ class F1StackingEnsemble:
 
         return result
 
-    # ── Persistence ───────────────────────────────────────────────────────────
+    # Persistence
 
     def save(self, path: Optional[Path] = None) -> Path:
         path = path or MODEL_DIR / "ensemble.pkl"
@@ -436,7 +417,7 @@ class F1StackingEnsemble:
         log.info("Ensemble loaded from %s", path)
         return obj
 
-    # ── Feature importance ────────────────────────────────────────────────────
+    # Feature importance
 
     def feature_importance(self) -> pd.DataFrame:
         """Returns XGBoost feature importance as a DataFrame."""

@@ -1,12 +1,9 @@
-"""
-src/train.py
-────────────
-Train the stacking ensemble on historical race data.
+"""Train the stacking ensemble on historical race data.
 
 Usage:
     python src/train.py --csv data/processed/historical_results.csv
 
-Expected CSV columns (minimum):
+The CSV needs at least these columns:
     year, gp, circuit_id, driver_code, team_name,
     grid_position, finish_position, dnf,
     q1_time_s, q2_time_s, q3_time_s,

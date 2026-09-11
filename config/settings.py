@@ -1,11 +1,9 @@
-"""
-F1 Race Predictor — Central configuration
-"""
+"""Central configuration for the predictor."""
 import importlib.util
 import warnings
 from pathlib import Path
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths
 ROOT_DIR   = Path(__file__).parent.parent
 DATA_DIR   = ROOT_DIR / "data"
 RAW_DIR    = DATA_DIR / "raw"
@@ -16,13 +14,13 @@ MODEL_DIR  = ROOT_DIR / "models"
 for d in [RAW_DIR, PROC_DIR, CACHE_DIR, MODEL_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
-# ── FastF1 ─────────────────────────────────────────────────────────────────────
+# FastF1
 FASTF1_CACHE = str(CACHE_DIR / "fastf1")
 
-# ── OpenF1 ─────────────────────────────────────────────────────────────────────
+# OpenF1
 OPENF1_BASE_URL = "https://api.openf1.org/v1"
 
-# ── Race weekend sessions ──────────────────────────────────────────────────────
+# Race weekend sessions
 SESSION_TYPES = {
     "FP1": "Practice 1",
     "FP2": "Practice 2",
@@ -33,11 +31,11 @@ SESSION_TYPES = {
     "SQ":  "Sprint Qualifying",
 }
 
-# ── Compounds ──────────────────────────────────────────────────────────────────
+# Compounds
 TIRE_COMPOUNDS = ["SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"]
 DRY_COMPOUNDS  = ["SOFT", "MEDIUM", "HARD"]
 
-# ── Feature columns ────────────────────────────────────────────────────────────
+# Feature columns
 QUALIFYING_FEATURES = [
     "q1_time_s", "q2_time_s", "q3_time_s",
     "q1_gap_to_pole", "q2_gap_to_pole", "q3_gap_to_pole",
@@ -88,7 +86,7 @@ ALL_FEATURES = (
 
 TARGET_COLS = ["finish_position", "finish_position_top3", "finish_position_top10"]
 
-# ── Monte Carlo ────────────────────────────────────────────────────────────────
+# Monte Carlo
 MC_SIMULATIONS     = 10_000
 MC_RANDOM_SEED     = 42
 
@@ -128,7 +126,7 @@ SIMULATION_PARAMS = {
     "lap_time_min_s": 60.0,
 }
 
-# ── Prediction calibration (post-model, pre-simulation) ─────────────────────
+# Prediction calibration (post-model, pre-simulation)
 CALIBRATION_PARAMS = {
     # Blend between model predicted position and qualifying prior.
     # 1.0 = model-only, 0.0 = qualifying-only.
@@ -138,7 +136,7 @@ CALIBRATION_PARAMS = {
     "grid_pace_offset_per_pos": 0.05,
 }
 
-# ── Model hyper-parameters (sensible defaults; tune via Optuna) ────────────────
+# Model hyper-parameters (sensible defaults; tune via Optuna)
 XGB_PARAMS = {
     "n_estimators": 500,
     "max_depth": 6,
